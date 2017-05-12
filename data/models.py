@@ -121,7 +121,7 @@ class Filial(object):
                                '2gis_removed_at': '',
                                'other_removed_at': ''}
 
-        self.metro_distances_json = [{}]
+        self.metro_distances_json = {}
 
         self.google_place_id = ''
         self.yandex_id = ''

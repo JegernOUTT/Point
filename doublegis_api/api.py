@@ -1,12 +1,17 @@
-import numpy as np
+import os
+import sys
 import pickle
+
+import numpy as np
 
 from doublegis_api.building import get_buildings_by_radius_parallel
 from doublegis_api.clusters_by_polygon import ClusterByPolygon
 from doublegis_api.main_rubrics import get_main_rubrics
+from doublegis_api.metro_coordinates import add_metro_distances
 from doublegis_api.metro_stations import get_metro_stations
-from doublegis_api.organizations_and_filials import get_organizations_and_filials_parallel, \
-    get_filials_by_organizations, get_filials_by_organizations_parallel, update_filials_dates_parallel
+from doublegis_api.organizations_and_filials import \
+    get_filials_by_organizations_parallel, update_filials_dates_parallel, \
+    get_organizations_and_filials_parallel_by_buildings, _get_removed_organizations_and_filials_parallel_by_ids
 from doublegis_api.region import get_region
 from doublegis_api.sub_rubrics import get_sub_rubrics
 
@@ -21,36 +26,40 @@ class Api2Gis:
         self.organizations = None
         self.filials = None
 
-    def download_data(self, verbose=False):
-        print('Loading region')
+    def download_data(self, progress, verbose=False):
+        print('Загрузка региона')
         self.region = get_region(with_bounds='doublegis_api/data/bounds.txt')
         cluster = ClusterByPolygon(region=self.region, mode='file', radius_meters=250)
 
-        print('Loading rubrics')
+        print('Загрузка рубрик')
         self.rubrics = get_main_rubrics(self.region)
-        print('Rubrics count: {0}'.format(self.rubrics.shape[0]))
+        print('Количество рубрик: {0}'.format(self.rubrics.shape[0]))
 
-        print('Loading sub-rubrics')
+        print('Загрузка подрубрик')
         self.sub_rubrics = get_sub_rubrics(self.region, self.rubrics)
-        print('Sub-rubrics count: {0}'.format(self.sub_rubrics.shape[0]))
+        print('Количество подрубрик: {0}'.format(self.sub_rubrics.shape[0]))
 
-        print('Loading metro stations')
+        print('Загрузка станций метро')
         self.metro_stations = get_metro_stations(self.region)
-        print('Metro stations count: {0}'.format(self.metro_stations.shape[0]))
+        print('Количество станций метро: {0}'.format(self.metro_stations.shape[0]))
 
-        print('Loading buildings')
-        self.buildings = get_buildings_by_radius_parallel(workers=15, radius_meters=250,
-                                                          clusters=cluster.cluster_centers, verbose=verbose)
-        print('Buildings count: {0}'.format(self.buildings.shape[0]))
+        print('Загрузка зданий')
+        self.buildings = get_buildings_by_radius_parallel(clusters=cluster.cluster_centers,
+                                                          progress=progress, verbose=verbose)
+        print('Количество зданий: {0}'.format(self.buildings.shape[0]))
 
-        print('Loading organizations and filials')
-        self.organizations, self.filials = get_organizations_and_filials_parallel(workers=15, buildings=self.buildings,
-                                                                                  verbose=verbose)
-        print('Organizations count: {0}. Filials count: {1}'.format(self.organizations.shape[0],
-                                                                    self.filials.shape[0]))
+        print('Загрузка организаций и филиалов')
+        self.organizations, self.filials = get_organizations_and_filials_parallel_by_buildings(buildings=self.buildings,
+                                                                                               progress=progress,
+                                                                                               verbose=verbose)
+        print('Количество организаций: {0}. Количество филиалов: {1}'.format(self.organizations.shape[0],
+                                                                             self.filials.shape[0]))
 
-    def save(self, filename='doublegis_api/data/data.pickle'):
-        with open(filename, 'wb') as file:
+    def save(self, path='data/files/2gis', filename='data.pickle'):
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        with open(path + filename, 'wb') as file:
             pickle.dump({'region': self.region,
                          'rubrics': self.rubrics,
                          'sub_rubrics': self.sub_rubrics,
@@ -59,8 +68,8 @@ class Api2Gis:
                          'organizations': self.organizations,
                          'filials': self.filials}, file)
 
-    def load(self, filename='doublegis_api/data/data.pickle'):
-        with open(filename, 'rb') as f:
+    def load(self, path='data/files/2gis', filename='data.pickle'):
+        with open(path + filename, 'rb') as f:
             data = pickle.load(f)
             self.region = data['region']
             self.rubrics = data['rubrics']
@@ -70,18 +79,33 @@ class Api2Gis:
             self.organizations = data['organizations']
             self.filials = data['filials']
 
-    def download_new_data(self, verbose=False):
-        self.region = get_region(with_bounds='doublegis_api/data/bounds.txt')
+    def add_metro_distances(self):
+        self.filials = np.array(list(map(lambda x: add_metro_distances(x, self.metro_stations), self.filials)))
+
+    def describe(self, file=sys.stdout):
+        print('Регион: {0}'.format(self.region), file=file)
+        print('Количество рубрик: {0}'.format(len(self.rubrics)), file=file)
+        print('Количество смежных рубрик: {0}'.format(len(self.sub_rubrics)), file=file)
+        print('Количество станций метро: {0}'.format(len(self.metro_stations)), file=file)
+        print('Количество зданий: {0}'.format(len(self.buildings)), file=file)
+        print('Количество организаций: {0}'.format(len(self.organizations)), file=file)
+        print('Количество филиалов: {0}'.format(len(self.filials)), file=file)
+
+    def download_new_data(self, progress,
+                          bounds_filename='data/files/2gis/bounds.txt',
+                          verbose=False):
+        self.region = get_region(with_bounds=bounds_filename)
         cluster = ClusterByPolygon(region=self.region, mode='file', radius_meters=250)
-        rubrics = get_main_rubrics(self.region)
-        sub_rubrics = get_sub_rubrics(self.region, rubrics)
-        self.metro_stations = get_metro_stations(self.region)
+        rubrics = get_main_rubrics(region=self.region)
+        sub_rubrics = get_sub_rubrics(region=self.region, main_rubrics=rubrics)
+        self.metro_stations = get_metro_stations(region=self.region)
 
-        buildings = get_buildings_by_radius_parallel(workers=15, radius_meters=250,
-                                                     clusters=cluster.cluster_centers, verbose=verbose)
+        buildings = get_buildings_by_radius_parallel(clusters=cluster.cluster_centers,
+                                                     progress=progress, verbose=verbose)
 
-        organizations, filials = get_organizations_and_filials_parallel(workers=15, buildings=buildings,
-                                                                        verbose=verbose)
+        organizations, filials = get_organizations_and_filials_parallel_by_buildings(buildings=buildings,
+                                                                                     progress=progress,
+                                                                                     verbose=verbose)
         # Override region, metro_stations
         # Union for rubrics, sub_rubrics, buildings
         # Returning difference for organizations, filials
@@ -92,23 +116,22 @@ class Api2Gis:
         new_organizations = np.setdiff1d(organizations, self.organizations)
         new_filials = np.setdiff1d(filials, self.filials)
 
-        return {'new_organizations': new_organizations, 'new_filials': new_filials}
+        return new_organizations, new_filials
 
-    def merge_data(self, data):
-        new_organizations = data['new_organizations']
-        new_filials = data['new_filials']
+    def merge_data(self, organizations, filials):
+        self.organizations = np.unique(np.append(self.organizations, organizations))
+        self.filials = np.unique(np.append(self.filials, filials))
 
-        # Add new data
-        self.organizations = np.unique(np.append(self.organizations, new_organizations))
-        self.filials = np.unique(np.append(self.filials, new_filials))
-
-    def find_removed_filials(self, verbose=False):
+    # Запрос временно не нужен, так как есть более удобный способ через "чёрный вход" 2ГИС
+    def find_removed_filials(self, progress, verbose=False):
         not_found_filials = list(filter(lambda x: x.closed_at_json['2gis_removed_at'] != '', self.filials))
         organizations = list(map(lambda x: next(org for org in self.organizations if org.id == x.organization_id),
                                  not_found_filials))
-        print('You have {0} not found filials'.format(len(not_found_filials)))
+        print('Вы имеете {0} удалённых филиалов до обновления'.format(len(not_found_filials)))
 
-        loaded_filials = get_filials_by_organizations_parallel(workers=15, organizations=np.unique(organizations))
+        loaded_filials = get_filials_by_organizations_parallel(workers=15,
+                                                               progress=progress,
+                                                               organizations=np.unique(organizations))
 
         found = []
         not_found = []
@@ -117,19 +140,35 @@ class Api2Gis:
                 f.closed_at_json['2gis_removed_at'] = ''
                 found.append(f)
                 if verbose:
-                    print('Found disappeared filial by id: {0}', f)
+                    print('Найден закрывшийся ранее филиал: {0}', f)
             else:
+                # Здесь можно добавить дату закрытия
                 not_found.append(f)
-                if verbose:
-                    print('Disappeared filial not found by id: {0}', f)
 
         return {'found': np.array(found), 'not_found': np.array(not_found)}
 
-    def update_filials_dates(self):
-        before_filials = list(filter(lambda x: x.closed_at_json['2gis_removed_at'] != '', self.filials))
-        print('You have {0} not found filials before updating'.format(len(before_filials)))
+    def update_filials_dates(self, progress, verbose=True):
+        if verbose:
+            before_filials = list(filter(lambda x: x.closed_at_json['2gis_removed_at'] != '', self.filials))
+            print('До обновления имеется {0} удалённых филиалов'.format(len(before_filials)))
 
-        self.filials = update_filials_dates_parallel(workers=15, filials=self.filials)
+        self.filials = update_filials_dates_parallel(filials=self.filials, progress=progress)
 
-        after_filials = list(filter(lambda x: x.closed_at_json['2gis_removed_at'] != '', self.filials))
-        print('You have {0} not found filials after updating'.format(len(after_filials)))
+        if verbose:
+            after_filials = list(filter(lambda x: x.closed_at_json['2gis_removed_at'] != '', self.filials))
+            print('После обновления имеется {0} удалённых филиалов'.format(len(after_filials)))
+
+    def get_removed_orgs_by_ids(self, ids, progress, verbose=True):
+        if verbose:
+            print('До обновления имеется {0} филиалов'.format(len(self.filials)))
+            before_filials = list(filter(lambda x: x.closed_at_json['2gis_removed_at'] != '', self.filials))
+            print('До обновления имеется {0} удалённых филиалов'.format(len(before_filials)))
+
+        new_filials = _get_removed_organizations_and_filials_parallel_by_ids(ids=ids,
+                                                                             progress=progress)
+        self.filials = np.union1d(self.filials, new_filials)
+
+        if verbose:
+            print('После обновления имеется {0} филиалов'.format(len(self.filials)))
+            after_filials = list(filter(lambda x: x.closed_at_json['2gis_removed_at'] != '', self.filials))
+            print('После обновления имеется {0} удалённых филиалов'.format(len(after_filials)))
