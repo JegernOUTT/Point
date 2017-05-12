@@ -14,7 +14,7 @@ from sklearn.cluster import KMeans
 
 
 class ClusterByPolygon:
-    filename = 'doublegis_api/data/cluster_centers.pickle'
+    filename = 'data/files/2gis/cluster_centers.pickle'
     latitude_degree_meters = 111131.745
     longitude_degree_meters = 78846.80572069259
 

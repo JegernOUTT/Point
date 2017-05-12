@@ -28,7 +28,7 @@ class Api2Gis:
 
     def download_data(self, progress, verbose=False):
         print('Загрузка региона')
-        self.region = get_region(with_bounds='doublegis_api/data/bounds.txt')
+        self.region = get_region(with_bounds='data/files/2gis/bounds.txt')
         cluster = ClusterByPolygon(region=self.region, mode='file', radius_meters=250)
 
         print('Загрузка рубрик')
@@ -55,7 +55,7 @@ class Api2Gis:
         print('Количество организаций: {0}. Количество филиалов: {1}'.format(self.organizations.shape[0],
                                                                              self.filials.shape[0]))
 
-    def save(self, path='data/files/2gis', filename='data.pickle'):
+    def save(self, path='data/files/2gis/', filename='data.pickle'):
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -68,7 +68,7 @@ class Api2Gis:
                          'organizations': self.organizations,
                          'filials': self.filials}, file)
 
-    def load(self, path='data/files/2gis', filename='data.pickle'):
+    def load(self, path='data/files/2gis/', filename='data.pickle'):
         with open(path + filename, 'rb') as f:
             data = pickle.load(f)
             self.region = data['region']
@@ -83,7 +83,7 @@ class Api2Gis:
         self.filials = np.array(list(map(lambda x: add_metro_distances(x, self.metro_stations), self.filials)))
 
     def describe(self, file=sys.stdout):
-        print('Регион: {0}'.format(self.region), file=file)
+        print('Регион: {0}'.format(self.region.name), file=file)
         print('Количество рубрик: {0}'.format(len(self.rubrics)), file=file)
         print('Количество смежных рубрик: {0}'.format(len(self.sub_rubrics)), file=file)
         print('Количество станций метро: {0}'.format(len(self.metro_stations)), file=file)
@@ -94,18 +94,29 @@ class Api2Gis:
     def download_new_data(self, progress,
                           bounds_filename='data/files/2gis/bounds.txt',
                           verbose=False):
+        print('Загрузка региона')
         self.region = get_region(with_bounds=bounds_filename)
         cluster = ClusterByPolygon(region=self.region, mode='file', radius_meters=250)
+
+        print('Загрузка рубрик')
         rubrics = get_main_rubrics(region=self.region)
+
+        print('Загрузка подрубрик')
         sub_rubrics = get_sub_rubrics(region=self.region, main_rubrics=rubrics)
+
+        print('Загрузка станций метро')
         self.metro_stations = get_metro_stations(region=self.region)
 
+        print('Загрузка зданий')
         buildings = get_buildings_by_radius_parallel(clusters=cluster.cluster_centers,
                                                      progress=progress, verbose=verbose)
 
+        print('Загрузка организаций и филиалов')
         organizations, filials = get_organizations_and_filials_parallel_by_buildings(buildings=buildings,
                                                                                      progress=progress,
                                                                                      verbose=verbose)
+
+        print('Загрузки завершены. Обработка загруженных данных')
         # Override region, metro_stations
         # Union for rubrics, sub_rubrics, buildings
         # Returning difference for organizations, filials

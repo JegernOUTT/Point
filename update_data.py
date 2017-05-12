@@ -17,6 +17,7 @@ print('Выгрузка новых данных')
 orgs, fils = api.download_new_data(progress='console')
 print('Количество новых организаций: {0}'.format(len(orgs)))
 print('Количество новых филиалов: {0}'.format(len(fils)))
+
 print()
 print('Объединение данных')
 api.merge_data(organizations=orgs, filials=fils)

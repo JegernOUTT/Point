@@ -81,7 +81,7 @@ def _get_organizations_and_filials_by_buildings(building, session, verbose):
             print('No filials at building {0} or error: {1}'.format(building.building_id,
                                                                     r_get_total.json()),
                   file=sys.stderr)
-        return np.array([]), np.array([])
+        return [], []
 
     else:
         filials_count = int(r_get_total.json()['result']['total'])
