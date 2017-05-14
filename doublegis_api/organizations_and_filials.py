@@ -273,7 +273,7 @@ def _parse_by_firm(request, status_code):
 # Обновление дат филиалов (created_at, removed_at)
 def _update_filial_date(filial, session, verbose):
     r = safe_request(session=session,
-                     allowed_errors={200, 410, 404},
+                     allowed_codes={200, 410, 404},
                      url='https://2gis.ru/spb/firm/{0}'.format(filial.doublegis_id))
     try:
         if r.status_code == 410:
@@ -341,7 +341,7 @@ def update_filials_dates_parallel(filials, workers=15, verbose=False, progress='
 # Получение удалённых филиалов / организаций по идентификаторам
 def _get_removed_organization_and_filial_by_ids(i, session, verbose):
     r = safe_request(session=session,
-                     allowed_errors={200, 410, 404},
+                     allowed_codes={200, 410, 404},
                      url='https://2gis.ru/spb/firm/{0}'.format(i))
 
     try:
