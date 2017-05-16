@@ -175,9 +175,11 @@ class Api2Gis:
             before_filials = list(filter(lambda x: x.closed_at_json['2gis_removed_at'] != '', self.filials))
             print('До обновления имеется {0} удалённых филиалов'.format(len(before_filials)))
 
-        new_filials = _get_removed_organizations_and_filials_parallel_by_ids(ids=ids,
-                                                                             progress=progress)
+        new_filials, new_organizations = _get_removed_organizations_and_filials_parallel_by_ids(ids=ids,
+                                                                                                progress=progress)
+
         self.filials = np.union1d(self.filials, new_filials)
+        self.organizations = np.union1d(self.organizations, new_organizations)
 
         if verbose:
             print('После обновления имеется {0} филиалов'.format(len(self.filials)))

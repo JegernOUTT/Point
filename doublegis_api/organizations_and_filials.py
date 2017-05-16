@@ -28,7 +28,7 @@ def _parse_organization_and_filial(filial_json, verbose, just_filial=False):
             if 'created_at' in filial_json['dates'].keys() else ''
         f.updated_at_json['2gis_updated_at'] = filial_json['dates']['updated_at'] \
             if 'updated_at' in filial_json['dates'].keys() else ''
-        f.closed_at_json['2gis_removed_at'] = filial_json['dates']['removed_at'] \
+        f.closed_at_json['2gis_removed_at'] = filial_json['dates']['deleted_at'] \
             if 'removed_at' in filial_json['dates'].keys() else ''
     except Exception as e:
         f = None
@@ -353,6 +353,8 @@ def _get_removed_organization_and_filial_by_ids(i, session, verbose):
                 return None, None
 
             return _parse_organization_and_filial(company, verbose)
+        else:
+            return None, None
     except Exception as e:
         if verbose:
             print('Error while company parse {0}. Data: {1}. Status code: {2}'.format(e, i, r.status_code))
@@ -387,25 +389,22 @@ def _get_removed_organizations_and_filials_by_ids(ids, progress, verbose=False):
                 organizations.append(o)
             if f is not None:
                 filials.append(f)
-        return filials, organizations
+        return np.unique(filials), np.unique(organizations)
 
 
 def _get_removed_organizations_and_filials_parallel_by_ids(ids, workers=15, verbose=False, progress='ipython'):
-    filials = []
-    organizations = []
+    filials = np.array([])
+    organizations = np.array([])
 
     pool = Pool(processes=workers)
     chunk_size = len(ids) // workers
-    results = [pool.apply_async(update_filials_dates, (ids[chunk_size * i:chunk_size * (i + 1)],
-                                                       progress, verbose))
+    results = [pool.apply_async(_get_removed_organizations_and_filials_by_ids, (ids[chunk_size * i:chunk_size * (i + 1)],
+                                                                                progress, verbose))
                for i in range(workers)]
 
-    data = []
     for async in results:
-        data.append(async.get())
-
-    for fil, org in data:
-        filials += fil
-        organizations += org
+        fil, org = async.get()
+        filials = np.append(filials, fil)
+        organizations = np.append(organizations, org)
 
     return np.unique(filials), np.unique(organizations)
