@@ -27,6 +27,10 @@ print('Обновление дат всех филиалов')
 api.update_filials_dates(progress='console')
 
 print()
+print('Обновление расстояний до метро')
+api.add_metro_distances()
+
+print()
 print('Сохранение данных')
 api.save()
 

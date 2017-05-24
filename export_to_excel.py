@@ -10,8 +10,6 @@ print()
 api = Api2Gis()
 api.load()
 api.describe()
-api.add_metro_distances()
-api.save()
 
 print()
 print('Фильтрация филиалов')
