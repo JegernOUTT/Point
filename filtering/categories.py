@@ -6,10 +6,13 @@ import json
 
 def get_data_by_filial(api, filial):
     org = next(o for o in api.organizations if o.id == filial.organization_id)
-    main_rubric = next(f for f in api.rubrics if f.id == int(org.main_rubrics['doublegis_rubrics_ids'][0]))
-    sub_rubrics = [f for f in api.sub_rubrics
-                   for i in org.sub_rubrics['doublegis_rubrics_ids'] if f.id == int(i)]
-    return filial, org, main_rubric, sub_rubrics
+    try:
+        main_rubric = next(f for f in api.rubrics if f.id == org.main_rubrics['doublegis_rubrics_ids'][0])
+        sub_rubrics = [f for f in api.sub_rubrics
+                       for i in org.sub_rubrics['doublegis_rubrics_ids'] if f.id == int(i)]
+        return filial, org, main_rubric, sub_rubrics
+    except:
+        return filial, org, None, None
 
 
 def get_filter_cats_ids(rubrics, sub_rubrics, filename='filtering/categories.json'):
@@ -39,7 +42,7 @@ def filter_by_categories(filials, organizations,
         from utility.ipython_utility import log_progress
 
         filtered = []
-        for filial in log_progress(filials, name='Филиалы'):
+        for filial in log_progress(filials, name='Филиалы', every=1):
             if _filial_valid(filial, organizations, main_categories_filter_ids, sub_categories_filter_ids):
                 filtered.append(filial)
         return np.array(filtered)

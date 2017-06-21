@@ -9,10 +9,7 @@ from filtering.categories import get_data_by_filial
 
 
 def _process_element(api, filial):
-    try:
-        filial, org, main_rubric, sub_rubrics = get_data_by_filial(api, filial)
-    except:
-        return None
+    filial, org, main_rubric, sub_rubrics = get_data_by_filial(api, filial)
     metro, distance = get_nearest_stations(filial, api.metro_stations)[0]
     if distance > 1000:
         return None
@@ -26,7 +23,8 @@ def _process_element(api, filial):
         else:
             living_period = (datetime.today() - created_at).days // 31
 
-    return [main_rubric.name, org.name_primary, filial.address_synonyms[0], filial.latitude,
+    return [main_rubric.name if main_rubric is not None else 'Not found',
+            org.name_primary, filial.address_synonyms[0], filial.latitude,
             filial.longitude, metro.name, metro.latitude, metro.longitude, distance / 1000.,
             filial.created_at_json['2gis_appear_at'], filial.closed_at_json['2gis_removed_at'],
             living_period, 1 if filial.closed_at_json['2gis_removed_at'] == '' else 0]
@@ -43,9 +41,9 @@ def export_excel(api, progress='ipython'):
                 data.append(row)
 
         df = pd.DataFrame(data=data,
-                            columns=['category', 'company', 'address', 'latitude', 'longtitude', 'nearest_name',
-                                     'nearest_metro_lat', 'nearest_metro_long', 'nearest_distance',
-                                     'created_date', 'removed_date', 'living_period', 'current_status']) \
+                          columns=['category', 'company', 'address', 'latitude', 'longtitude', 'nearest_name',
+                                   'nearest_metro_lat', 'nearest_metro_long', 'nearest_distance',
+                                   'created_date', 'removed_date', 'living_period', 'current_status']) \
             .rename(columns={'category': 'Отрасль',
                              'company': 'Компания',
                              'address': 'Адрес',

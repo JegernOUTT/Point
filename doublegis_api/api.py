@@ -105,7 +105,7 @@ class Api2Gis:
         sub_rubrics = get_sub_rubrics(region=self.region, main_rubrics=rubrics)
 
         print('Загрузка станций метро')
-        self.metro_stations = get_metro_stations(region=self.region)
+        metro_stations = get_metro_stations(region=self.region)
 
         print('Загрузка зданий')
         buildings = get_buildings_by_radius_parallel(clusters=cluster.cluster_centers,
@@ -117,9 +117,10 @@ class Api2Gis:
                                                                                      verbose=verbose)
 
         print('Загрузки завершены. Обработка загруженных данных')
-        # Override region, metro_stations
-        # Union for rubrics, sub_rubrics, buildings
+        # Override region,
+        # Union for rubrics, sub_rubrics, buildings, metro_stations
         # Returning difference for organizations, filials
+        self.metro_stations = np.union1d(self.metro_stations, metro_stations)
         self.rubrics = np.union1d(self.rubrics, rubrics)
         self.sub_rubrics = np.union1d(self.sub_rubrics, sub_rubrics)
         self.buildings = np.union1d(self.buildings, buildings)
